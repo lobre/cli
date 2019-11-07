@@ -8,50 +8,58 @@ import (
 
 var ErrorHandling = flag.ExitOnError
 
-type Action struct {
+type Cmd struct {
 	Name string
 	Run  func(fs *flag.FlagSet) error
 	fs   *flag.FlagSet
 }
 
-func (act *Action) Flags() *flag.FlagSet {
-	if act.fs == nil {
-		act.fs = flag.NewFlagSet(act.Name, ErrorHandling)
-	}
-	return act.fs
-}
-
-type Object struct {
-	Name    string
-	actions map[string]*Action
-}
-
-// AddAction will add or replace an cli action.
-// The action name is taken as the unique ID so it should be provided.
-// If the action does not have any name, it will replace the default action.
-// If the action is nil, it will panic
-func (obj *Object) AddAction(act *Action) {
-	if act == nil {
-		panic("cannot add nil action")
+func (cmd *Cmd) Flags() *flag.FlagSet {
+	if cmd.fs == nil {
+		cmd.fs = flag.NewFlagSet(cmd.Name, ErrorHandling)
 	}
 
-	obj.actions[act.Name] = act
+	return cmd.fs
 }
 
-func (obj *Object) RootAction() *Action {
-	return obj.actions[""]
+type Group struct {
+	Name string
+	cmds map[string]*Cmd
+}
+
+// AddCmd will add or replace a cli command.
+// If the command does not have any name, it will replace the default command.
+// If the command is nil, it will panic
+func (group *Group) AddCmd(cmd *Cmd) {
+	if cmd == nil {
+		panic("cannot add nil command")
+	}
+
+	if cmd.fs == nil {
+		cmd.fs = flag.NewFlagSet(cmd.Name, ErrorHandling)
+	}
+
+	if group.cmds == nil {
+		group.cmds = make(map[string]*Cmd)
+	}
+
+	group.cmds[cmd.Name] = cmd
+}
+
+func (group *Group) RootCmd() *Cmd {
+	return group.cmds[""]
 }
 
 type App struct {
-	Name    string
-	objects map[string]*Object
+	Name   string
+	groups map[string]*Group
 }
 
 func New() *App {
 	var app App
 
-	app.objects = make(map[string]*Object)
-	app.AddObject(&Object{})
+	app.groups = make(map[string]*Group)
+	app.AddGroup(&Group{})
 
 	return &app
 }
@@ -61,31 +69,31 @@ func (app *App) Usage() string {
 	return "usage"
 }
 
-func (app *App) RootObject() *Object {
-	return app.objects[""]
+func (app *App) RootGroup() *Group {
+	return app.groups[""]
 }
 
-// AddObject will add or replace an cli object.
-// If the object does not have any name, it will replace the default object.
-// If the object is nil, it will panic
-func (app *App) AddObject(obj *Object) {
-	if obj == nil {
-		panic("cannot add nil object")
+// AddGroup will add or replace an cli group.
+// If the group does not have any name, it will replace the default group.
+// If the group is nil, it will panic
+func (app *App) AddGroup(group *Group) {
+	if group == nil {
+		panic("cannot add nil group")
 	}
 
-	if obj.actions == nil {
-		obj.actions = make(map[string]*Action)
+	if group.cmds == nil {
+		group.cmds = make(map[string]*Cmd)
 	}
 
-	if _, ok := obj.actions[""]; !ok {
-		obj.AddAction(&Action{})
+	if _, ok := group.cmds[""]; !ok {
+		group.AddCmd(&Cmd{})
 	}
 
-	if obj.actions[""].Run == nil {
-		obj.actions[""].Run = app.defaultRun
+	if group.cmds[""].Run == nil {
+		group.cmds[""].Run = app.defaultRun
 	}
 
-	app.objects[obj.Name] = obj
+	app.groups[group.Name] = group
 }
 
 func (app *App) defaultRun(fs *flag.FlagSet) error {
@@ -94,40 +102,44 @@ func (app *App) defaultRun(fs *flag.FlagSet) error {
 }
 
 func (app *App) Run() {
-	var obj, act string
+	var groupArg, cmdArg string
 	var flagsIdx int = 1
 
 	switch {
 	case len(os.Args) >= 3 && !isFlag(os.Args[1]) && !isFlag(os.Args[2]):
-		obj = os.Args[2]
-		act = os.Args[1]
+		groupArg = os.Args[1]
+		cmdArg = os.Args[2]
 		flagsIdx = 3
 	case len(os.Args) >= 2 && !isFlag(os.Args[1]):
-		act = os.Args[1]
+		cmdArg = os.Args[1]
 		flagsIdx = 2
 	}
 
-	var object *Object
-	var action *Action
+	var group *Group
+	var cmd *Cmd
 	var ok bool
 
-	if object, ok = app.objects[obj]; !ok {
-		fmt.Println("object does not exist")
+	if group, ok = app.groups[groupArg]; !ok {
+		fmt.Printf("group %s does not exist\n", groupArg)
 		fmt.Println(app.Usage())
 		os.Exit(0)
 	}
 
-	if action, ok = object.actions[act]; !ok {
-		fmt.Println("action does not exist")
+	if cmd, ok = group.cmds[cmdArg]; !ok {
+		if groupArg == "" {
+			fmt.Printf("command %s does not exist\n", cmdArg)
+		} else {
+			fmt.Printf("command %s does not exist in group %s\n", cmdArg, groupArg)
+		}
 		fmt.Println(app.Usage())
 		os.Exit(0)
 	}
 
 	if len(os.Args) > flagsIdx {
-		action.fs.Parse(os.Args[flagsIdx:])
+		cmd.fs.Parse(os.Args[flagsIdx:])
 	}
 
-	if err := action.Run(action.fs); err != nil {
+	if err := cmd.Run(cmd.fs); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
