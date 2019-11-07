@@ -77,7 +77,11 @@ func (app *App) AddObject(obj *Object) {
 		obj.actions = make(map[string]*Action)
 	}
 
-	if _, ok := obj.actions[""]; !ok || obj.actions[""].Run == nil {
+	if _, ok := obj.actions[""]; !ok {
+		obj.AddAction(&Action{})
+	}
+
+	if obj.actions[""].Run == nil {
 		obj.actions[""].Run = app.defaultRun
 	}
 
