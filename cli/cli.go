@@ -30,8 +30,16 @@ type Object struct {
 	flagset *flag.FlagSet
 }
 
-func (o *Object) AddAction(a ...*Action) {
-	o.actions = append(o.actions, a...)
+// SetAction will add or replace an cli action.
+// The action name is taken as the unique ID so it should be provided.
+func (o *Object) SetAction(a *Action) error {
+	if a == nil {
+		return errors.New("cannot add nil action")
+	}
+	if a.Name == "" {
+		return errors.New("cannot add action with empty name")
+	}
+	o.actions[a.Name] = a
 }
 
 func (o *Object) FlagSet() *flag.FlagSet {
@@ -45,8 +53,8 @@ func (o *Object) FlagSet() *flag.FlagSet {
 type App struct {
 	Name string
 
-	root Object
-	objs []*Object
+	root    Object
+	objects map[string]*Object
 }
 
 func New() *App {
@@ -55,12 +63,22 @@ func New() *App {
 	return &app
 }
 
-func (app *App) AddObject(obj ...*Object) {
-	app.objs = append(app.objs, obj...)
+// SetObject will add or replace an cli object.
+// The object name is taken as the unique ID so it should be provided.
+func (app *App) SetObject(obj *Object) error {
+	if obj == nil {
+		return errors.New("cannot add nil object")
+	}
+	if obj.Name == "" {
+		return errors.New("cannot add object with empty name")
+	}
+	app.objects[obj.Name] = obj
 }
 
-func (app *App) AddAction(a ...*Action) {
-	app.root.actions = append(app.root.actions, a...)
+// SetAction will add or replace an cli action of the default object.
+// The action name is taken as the unique ID so it should be provided.
+func (app *App) SetAction(a *Action) error {
+	return app.root.SetAction(a)
 }
 
 func (app *App) FlagSet() *flag.FlagSet {
@@ -68,11 +86,16 @@ func (app *App) FlagSet() *flag.FlagSet {
 }
 
 func (app *App) Parse() error {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 2 || isFlag(os.Args[1]) {
 		return errors.New("expected at least action in command")
 	}
 
-	var actionIdx, objectIdx int
+	// TODO: use these flag
+	var hasObj bool
+	var actionIdx int = 1
+
+	// Rewrite in order to set the action as optional (because of myapp --version for instance)
+
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
 
@@ -93,15 +116,11 @@ func (app *App) Parse() error {
 		return errors.New("expected at least action in command")
 	}
 
-    // parse object flags
-    switch 
-
 	if objectIdx == 0 {
-	} else {
-        switch os.Args[1] {
-            case:
-        }
-    }
+		//
+	} else if _, ok := app.objects[os.Args[1]]; ok {
+		// this feels wrong because objectIdx is useless
+	}
 
 	return nil
 }
