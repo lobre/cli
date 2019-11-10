@@ -59,12 +59,8 @@ A command can also be assigned to a group that itself will be added to the app.
     app.AddGroup(&containers)
     app.Run()
 
-Finally, you can define flags onto the app, group or command.
-You just have to call the "Flags()" method on one of them and it will return a regular
-"flag.FlagSet" that you can use to add flags.
-
-Then, you can use the "Lookup" function on a FlagSet from the "Run" function of your command
-to retrieve a flag or use "Args" to retrieve a non flag argument.
+Finally, you can define flags onto the app, group or command. You just have to call the `Flags()` method on one of them and it will return a regular `flag.FlagSet` that you can use to add flags.
+Then, you can use the `Lookup` function on a `FlagSet` from the `Run` function of your command to retrieve a flag or use `Args` to retrieve a non flag argument.
 
     app := cli.New()
     app.Desc = "This is the app description"
@@ -80,5 +76,4 @@ to retrieve a flag or use "Args" to retrieve a non flag argument.
     })
     app.Run()
 
-Where running your cli app, a usage documentation will be printed if you add the "--help" flag,
-or if you don't provide a command or a group.
+Where running your cli app, a usage documentation will be printed if you add the `--help` flag, or if you don't provide a command or a group.
