@@ -1,3 +1,3 @@
-module github.com/lobre/kits/cli
+module github.com/lobre/go-cli
 
 go 1.13
