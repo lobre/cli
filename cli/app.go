@@ -10,145 +10,24 @@ import (
 
 var errorHandling = flag.ExitOnError
 
-type Cmd struct {
-	Name string
-	Desc string
-	Run  func(app, group, cmd *flag.FlagSet) error
-
-	group *Group
-	fs    *flag.FlagSet
-}
-
-func (cmd *Cmd) Flags() *flag.FlagSet {
-	if cmd.fs == nil {
-		cmd.fs = flag.NewFlagSet(cmd.Name, errorHandling)
-		cmd.fs.Usage = cmd.defaultUsage
-	}
-	return cmd.fs
-}
-
-func (cmd *Cmd) defaultUsage() {
-	var opt string
-	if cmd.fs.NFlag() > 0 {
-		opt = " [OPTIONS]"
-	}
-	if cmd.group != nil {
-		fmt.Printf("\nUsage:	%s %s %s%s [PARAMS...]\n", os.Args[0], cmd.group.Name, cmd.Name, opt)
-	} else {
-		fmt.Printf("\nUsage:	%s %s%s [PARAMS...]\n", os.Args[0], cmd.Name, opt)
-	}
-
-	if cmd.Desc != "" {
-		fmt.Printf("\n%s\n", cmd.Desc)
-	}
-
-	// options
-	if cmd.fs.NFlag() > 0 {
-		fmt.Print("\nOptions:\n")
-		writer := tabwriter.NewWriter(os.Stdout, 0, 8, 2, '\t', 0)
-		cmd.fs.VisitAll(func(f *flag.Flag) {
-			fmt.Fprintf(writer, "  -%s\t%s\n", f.Name, f.Usage)
-		})
-		writer.Flush()
-	}
-}
-
-type Group struct {
-	Name    string
-	Desc    string
-	Default func(app, group *flag.FlagSet) error
-
-	cmds map[string]*Cmd
-	fs   *flag.FlagSet
-}
-
-func (group *Group) Flags() *flag.FlagSet {
-	if group.fs == nil {
-		group.fs = flag.NewFlagSet(group.Name, errorHandling)
-		group.fs.Usage = group.defaultUsage
-	}
-	return group.fs
-}
-
-func (group *Group) defaultUsage() {
-	var opt string
-	if group.fs.NFlag() > 0 {
-		opt = " [OPTIONS]"
-	}
-	fmt.Printf("\nUsage:	%s %s%s COMMAND\n", os.Args[0], group.Name, opt)
-
-	if group.Desc != "" {
-		fmt.Printf("\n%s\n", group.Desc)
-	}
-
-	// options
-	if group.fs.NFlag() > 0 {
-		fmt.Print("\nOptions:\n")
-		writer := tabwriter.NewWriter(os.Stdout, 0, 8, 2, '\t', 0)
-		group.fs.VisitAll(func(f *flag.Flag) {
-			fmt.Fprintf(writer, "  -%s\t%s\n", f.Name, f.Usage)
-		})
-		writer.Flush()
-	}
-
-	// commands
-	if len(group.cmds) > 0 {
-		fmt.Print("\nCommands:\n")
-
-		keys := make([]string, 0, len(group.cmds))
-		for k := range group.cmds {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		writer := tabwriter.NewWriter(os.Stdout, 0, 8, 2, '\t', 0)
-		for _, k := range keys {
-			fmt.Fprintf(writer, "  %s\t%s\n", group.cmds[k].Name, group.cmds[k].Desc)
-		}
-		writer.Flush()
-	}
-}
-
-// AddCmd will add or replace a cli command.
-// If the command does not have any name, it will replace the default command.
-// If the command is nil, it will panic
-func (group *Group) AddCmd(cmd *Cmd) {
-	if cmd == nil {
-		panic("cannot add nil command")
-	}
-
-	if cmd.Name == "" {
-		panic("cannot add command with empty name")
-	}
-
-	if cmd.Run == nil {
-		panic("cannot add command without run function")
-	}
-
-	if cmd.fs == nil {
-		cmd.fs = flag.NewFlagSet(cmd.Name, errorHandling)
-		cmd.fs.Usage = cmd.defaultUsage
-	}
-
-	if group.cmds == nil {
-		group.cmds = make(map[string]*Cmd)
-	}
-
-	cmd.group = group
-	group.cmds[cmd.Name] = cmd
-}
-
+// App represents an application.
 type App struct {
+	// Desc is the application description.
+	// It will be printed in the usage.
 	Desc string
+
+	// Default is a function that will be called
+	// if the cli is called without any groups and commands.
+	// By default, it will print the usage.
+	Default func(app *flag.FlagSet) error
 
 	groups map[string]*Group
 	cmds   map[string]*Cmd
 
 	fs *flag.FlagSet
-
-	Default func(app *flag.FlagSet) error
 }
 
+// New will create a properly configured application.
 func New() *App {
 	app := App{
 		groups: make(map[string]*Group),
@@ -167,6 +46,8 @@ func New() *App {
 	return &app
 }
 
+// Flags will return a FlagSet that can be used to add
+// application level flags.
 func (app *App) Flags() *flag.FlagSet {
 	if app.fs == nil {
 		app.fs = flag.NewFlagSet(os.Args[0], errorHandling)
@@ -175,9 +56,8 @@ func (app *App) Flags() *flag.FlagSet {
 	return app.fs
 }
 
-// AddGroup will add or replace an cli group.
-// If the group does not have any name, it will replace the default group.
-// If the group is nil, it will panic
+// AddGroup will add or replace a cli group.
+// If the group is nil or if it does have a name it will panic.
 func (app *App) AddGroup(group *Group) {
 	if group == nil {
 		panic("cannot add nil group")
@@ -207,6 +87,10 @@ func (app *App) AddGroup(group *Group) {
 	app.groups[group.Name] = group
 }
 
+// AddCmd will add or replace a root command.
+// The command will be directly attached to the application and
+// is not part of any groups.
+// If the command is nil or if it does have a name it will panic.
 func (app *App) AddCmd(cmd *Cmd) {
 	if cmd == nil {
 		panic("cannot add nil command")
@@ -232,7 +116,12 @@ func (app *App) AddCmd(cmd *Cmd) {
 	app.cmds[cmd.Name] = cmd
 }
 
-func (app *App) Run() {
+// Run should be called after having finished configuring the
+// commands and groups, and after having defined flags.
+// It is usually the last command that you will called in your main.
+// It will parse command line flags and arguments and call the correct
+// command.
+func (app *App) Run() error {
 	var groupIdx, cmdIdx int
 
 	for i, f := range os.Args {
@@ -275,8 +164,7 @@ func (app *App) Run() {
 		}
 
 		if err := cmd.Run(app.fs, group.fs, cmd.fs); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 
 	// with root command
@@ -289,8 +177,7 @@ func (app *App) Run() {
 		}
 
 		if err := cmd.Run(app.fs, nil, cmd.fs); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 
 	// with group default action
@@ -303,8 +190,7 @@ func (app *App) Run() {
 		}
 
 		if err := group.Default(app.fs, group.fs); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 
 	// with app default action
@@ -314,12 +200,11 @@ func (app *App) Run() {
 		}
 
 		if err := app.Default(app.fs); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 	}
 
-	os.Exit(0)
+	return nil
 }
 
 func (app *App) defaultUsage() {
@@ -376,6 +261,8 @@ func (app *App) defaultUsage() {
 		}
 		writer.Flush()
 	}
+
+	fmt.Printf("\nRun '%s COMMAND --help' for more information on a command.\n", os.Args[0])
 }
 
 func isFlag(s string) bool {
