@@ -34,7 +34,7 @@ func (cmd *Cmd) Flags() *flag.FlagSet {
 
 func (cmd *Cmd) defaultUsage() {
 	var opt string
-	if cmd.fs.NFlag() > 0 {
+	if nbFlags(cmd.fs) > 0 {
 		opt = " [OPTIONS]"
 	}
 	if cmd.group != nil {
@@ -48,7 +48,7 @@ func (cmd *Cmd) defaultUsage() {
 	}
 
 	// options
-	if cmd.fs.NFlag() > 0 {
+	if nbFlags(cmd.fs) > 0 {
 		fmt.Print("\nOptions:\n")
 		writer := tabwriter.NewWriter(os.Stdout, 0, 8, 2, '\t', 0)
 		cmd.fs.VisitAll(func(f *flag.Flag) {

@@ -209,7 +209,7 @@ func (app *App) Run() error {
 
 func (app *App) defaultUsage() {
 	var opt string
-	if app.fs.NFlag() > 0 {
+	if nbFlags(app.fs) > 0 {
 		opt = " [OPTIONS]"
 	}
 	fmt.Printf("\nUsage:	%s%s COMMAND\n", os.Args[0], opt)
@@ -219,7 +219,7 @@ func (app *App) defaultUsage() {
 	}
 
 	// options
-	if app.fs.NFlag() > 0 {
+	if nbFlags(app.fs) > 0 {
 		fmt.Print("\nOptions:\n")
 		writer := tabwriter.NewWriter(os.Stdout, 0, 8, 2, '\t', 0)
 		app.fs.VisitAll(func(f *flag.Flag) {
@@ -270,4 +270,12 @@ func isFlag(s string) bool {
 		return false
 	}
 	return true
+}
+
+func nbFlags(fs *flag.FlagSet) int {
+	count := 0
+	fs.VisitAll(func(f *flag.Flag) {
+		count++
+	})
+	return count
 }
