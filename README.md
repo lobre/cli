@@ -1,4 +1,4 @@
-# go-cli
+# cli
 
 Package cli provides a simple to way to create a cli application with commands, groups of commands (subcommands) and flags.
 

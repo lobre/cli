@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lobre/go-cli"
+	"github.com/lobre/cli"
 )
 
 func setArgs(args string) {
